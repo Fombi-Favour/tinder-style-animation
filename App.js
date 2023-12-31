@@ -145,7 +145,6 @@ export default function App() {
           {...panResponder.panHandlers}
           style={[
             rotateAndTranslate,
-            stylez,
             {
               width: layout.width,
               height: layout.height,
@@ -190,7 +189,7 @@ export default function App() {
     } else {
       return (
         <Animated.View
-          style={{
+          style={[stylez, {
             opacity: nextCardOpacity,
             transform: [{ scale: nextCardScale }],
             width: layout.width,
@@ -199,7 +198,7 @@ export default function App() {
             borderRadius: 20,
             position: 'absolute',
             elevation: 3
-          }}>
+          }]}>
           <Animated.View
             style={{
               opacity: 0,
