@@ -1,6 +1,7 @@
 import { View, Text, Dimensions, Animated, Image, PanResponder } from "react-native";
 import React, { useRef, useState } from "react";
-
+import { Gesture, GestureDetector, Directions, GestureHandlerRootView } from "react-native-gesture-handler";
+import { useSharedValue, withTiming, useAnimatedStyle, interpolate, Extrapolate } from "react-native-reanimated";
 
 const WIDTH = Dimensions.get("window").width;
 const _size = WIDTH * 0.9;
@@ -95,7 +96,47 @@ export default function App() {
     extrapolate: "clamp",
   });
 
-  const RenderItem = ({ info, index }) => {
+  const stackCardOpacity = (index) => {
+    if (index === currentIndex) {
+      return 1;
+    } else if (index === currentIndex - 1 || index === currentIndex + 1) {
+      return 1 - 1 / visibleItems;
+    } else {
+      return 0;
+    }
+  }
+
+  const stackCardTranslate = (index) => {
+    if (index === currentIndex - 1) {
+      return layout.cardsGap;
+    } else {
+      return 0;
+    }
+  }
+
+  const stackCardScale = (index) => {
+    if (index === currentIndex) {
+      return 1;
+    } else {
+      return 0.96;
+    }
+  }
+
+  const RenderItem = ({ info, index, totalLength }) => {
+
+    const stackOpacity = stackCardOpacity(index);
+    const stackTranslate = stackCardTranslate(index);
+    const stackScale = stackCardScale(index);
+
+    const stylez = {
+      zIndex: totalLength - index,
+      opacity: stackOpacity,
+      transform: [
+        {translateY: stackTranslate},
+        {scale: stackScale},
+      ]
+    }
+    
     if (index < currentIndex) {
       return null;
     } else if (index === currentIndex) {
@@ -104,6 +145,7 @@ export default function App() {
           {...panResponder.panHandlers}
           style={[
             rotateAndTranslate,
+            stylez,
             {
               width: layout.width,
               height: layout.height,
@@ -199,7 +241,7 @@ export default function App() {
       }}
     >
       {colors.map((item, index) => {
-        return <RenderItem info={item} key={item.id} index={index} />;
+        return <RenderItem info={item} key={item.id} index={index} totalLength={colors.length - 1} />;
       }).reverse()}
     </View>
   );
