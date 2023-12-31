@@ -1,22 +1,8 @@
-import React, { useRef, useState, useEffect } from "react";
-import { Text, View, StyleSheet, Dimensions} from "react-native";
-import {
-  FlingGestureHandler,
-  Gesture,
-  GestureDetector,
-  Directions,
-  State,
-  GestureHandlerRootView,
-} from "react-native-gesture-handler";
-import Animated, {
-  useSharedValue,
-  withTiming,
-  useAnimatedStyle,
-  interpolate,
-} from "react-native-reanimated";
+import { View, Text, Dimensions, Animated, Image, PanResponder } from "react-native";
+import React, { useRef, useState } from "react";
+
 
 const WIDTH = Dimensions.get("window").width;
-// const HEIGHT = Dimensions.get("window").height;
 const _size = WIDTH * 0.9;
 const duration = 300;
 const visibleItems = 4;
@@ -27,108 +13,194 @@ const layout = {
   spacing: 12,
   cardsGap: 22,
 };
-
 const colors = [
-  { id: 1, color: "blue" },
-  { id: 2, color: "green" },
-  { id: 3, color: "yellow" },
-  { id: 4, color: "orange" },
+  { id: 1, color: "lightblue" },
+  { id: 2, color: "lightgreen" },
+  { id: 3, color: "orange" },
+  { id: 4, color: "brown" },
   { id: 5, color: "red" },
 ];
 
-const Card = ({ info, index, activeIndex, totalLength }) => {
-  const stylez = useAnimatedStyle(() => {
-    return {
-      position: 'absolute',
-      zIndex: totalLength - index,
-      opacity: interpolate(activeIndex.value,
-        [index - 1, index, index + 1],
-        [1 - 1 / visibleItems, 1, 0]
-      ),
-      transform: [
-        {
-          translateY: interpolate(activeIndex.value,
-            [index - 1, index, index + 1],
-            [layout.cardsGap, 0, 0]
-          )
-        },
-        {
-          scale: interpolate(activeIndex.value,
-            [index - 1, index, index + 1],
-            [0.96, 1, 1]
-          )
-      }]
-    }
-  })
-
-  return (
-    <Animated.View
-      style={[styles.card, stylez, { backgroundColor: info.color, }]}
-    ></Animated.View>
-  );
-};
-
 export default function App() {
-  const activeIndex = useSharedValue(0);
-  const flingLeft = Gesture.Fling()
-    .direction(Directions.LEFT)
-    .onStart(() => {
-      if (activeIndex.value === 0) {
-        return;
-      }
-      activeIndex.value = withTiming(activeIndex.value - 1, { duration });
-      console.log("fling left");
-    });
+  // Initialize the animated value to manage the position of the view
+  const pan = useRef(new Animated.ValueXY()).current;
 
-  const flingRight = Gesture.Fling()
-    .direction(Directions.RIGHT)
-    .onStart(() => {
-      if (activeIndex.value === colors.length) {
-        return;
-      }
-      activeIndex.value = withTiming(activeIndex.value + 1, { duration });
-      console.log("fling right");
-    });
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (evt, gesture) => {
+        pan.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: (evt, gesture) => {
+        if (gesture.dx > 120) {
+          Animated.spring(pan, {
+            toValue: { x: WIDTH + 100, y: gesture.dy },
+            useNativeDriver: true,
+          }).start(() => {
+            setCurrentIndex(currentIndex + 1);
+            pan.setValue({ x: 0, y: 0 });
+          });
+        } else if (gesture.dx < -120) {
+          Animated.spring(pan, {
+            toValue: { x: -WIDTH - 100, y: gesture.dy },
+            useNativeDriver: true,
+          }).start(() => {
+            setCurrentIndex(currentIndex + 1);
+            pan.setValue({ x: 0, y: 0 });
+          });
+        } else {
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: true,
+            friction: 4,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  const rotate = pan.x.interpolate({
+    inputRange: [-WIDTH / 2, 0, WIDTH / 2],
+    outputRange: ["-10deg", "0deg", "10deg"],
+    extrapolate: "clamp",
+  });
+
+  const rotateAndTranslate = {
+    transform: [{ rotate }, ...pan.getTranslateTransform()],
+  };
+
+  const likeOpacity = pan.x.interpolate({
+    inputRange: [-WIDTH / 2, 0, WIDTH / 2],
+    outputRange: [0, 0, 1],
+    extrapolate: "clamp",
+  });
+
+  const dislikeOpacity = pan.x.interpolate({
+    inputRange: [-WIDTH / 2, 0, WIDTH / 2],
+    outputRange: [1, 0, 0],
+    extrapolate: "clamp",
+  });
+
+  const nextCardOpacity = pan.x.interpolate({
+    inputRange: [-WIDTH / 2, 0, WIDTH / 2],
+    outputRange: [1, 0, 1],
+    extrapolate: "clamp",
+  });
+
+  const nextCardScale = pan.x.interpolate({
+    inputRange: [-WIDTH / 2, 0, WIDTH / 2],
+    outputRange: [1, 0.8, 1],
+    extrapolate: "clamp",
+  });
+
+  const RenderItem = ({ info, index }) => {
+    if (index < currentIndex) {
+      return null;
+    } else if (index === currentIndex) {
+      return (
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={[
+            rotateAndTranslate,
+            {
+              width: layout.width,
+              height: layout.height,
+              backgroundColor: info.color,
+              borderRadius: layout.borderRadius,
+              position: "absolute",
+              elevation: 3,
+            },
+          ]}
+        >
+          <Animated.View
+            style={{
+              opacity: likeOpacity,
+              position: "absolute",
+              top: 10,
+              left: 30,
+              zIndex: 1000,
+            }}
+          >
+            <Image
+              source={require("./assets/like.png")}
+              style={{ width: 55, height: 55 }}
+            />
+          </Animated.View>
+
+          <Animated.View
+            style={{
+              opacity: dislikeOpacity,
+              position: "absolute",
+              top: 10,
+              right: 30,
+              zIndex: 1000,
+            }}
+          >
+            <Image
+              source={require("./assets/nope.png")}
+              style={{ width: 55, height: 55 }}
+            />
+          </Animated.View>
+        </Animated.View>
+      );
+    } else {
+      return (
+        <Animated.View
+          style={{
+            opacity: nextCardOpacity,
+            transform: [{ scale: nextCardScale }],
+            width: layout.width,
+            height: layout.height,
+            backgroundColor: info.color,
+            borderRadius: 20,
+            position: 'absolute',
+            elevation: 3
+          }}>
+          <Animated.View
+            style={{
+              opacity: 0,
+              position: 'absolute',
+              top: 10,
+              left: 30,
+              zIndex: 1000,
+            }}>
+            <Image
+              source={require('./assets/like.png')}
+              style={{ width: 55, height: 55 }}
+            />
+          </Animated.View>
+          <Animated.View
+            style={{
+              opacity: 0,
+              position: 'absolute',
+              top: 10,
+              right: 30,
+              zIndex: 1000,
+            }}>
+            <Image
+              source={require('./assets/nope.png')}
+              style={{ width: 55, height: 55 }}
+            />
+          </Animated.View>
+        </Animated.View>
+      );
+    }
+  };
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <GestureDetector gesture={Gesture.Exclusive(flingLeft, flingRight)}>
-        <View
-          style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "flex-end",
-            marginBottom: layout.cardsGap * 6,
-          }}
-        >
-          {colors.map((item, index) => {
-            return (
-              <Card
-                info={item}
-                key={item.id}
-                index={index}
-                activeIndex={activeIndex}
-                totalLength={colors.length - 1}
-              />
-            );
-          })}
-        </View>
-      </GestureDetector>
-    </GestureHandlerRootView>
+    <View
+      style={{
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: layout.cardsGap * 8,
+      }}
+    >
+      {colors.map((item, index) => {
+        return <RenderItem info={item} key={item.id} index={index} />;
+      }).reverse()}
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 8,
-  },
-  card: {
-    height: layout.height,
-    width: layout.width,
-    borderRadius: layout.borderRadius,
-    padding: layout.spacing,
-  },
-});
